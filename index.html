@@ -184,11 +184,6 @@ video {
     margin-top: 0;
 }
 
-/* Section Divider - Hidden in grid mode */
-.section-divider {
-    display: none;
-}
-
 /* Status Messages */
 .status-message {
     text-align: center;
@@ -357,6 +352,13 @@ video {
         "https://raw.githubusercontent.com/bd257/live/refs/heads/main/Sports-138.m3u"
     ];
 
+    // Priority channels - these will appear first
+    const PRIORITY_CHANNELS = [
+        "btv", "b tv", "btv world", "btv national",
+        "tsports", "t sports", "t sports hd",
+        "fifa", "fifa world cup", "fifa+", "fifa+ channel"
+    ];
+
     let masterChannels = [];      
     let filteredChannels = [];
     let currentIndex = 0;
@@ -376,6 +378,48 @@ video {
     const nextBtn = document.getElementById('nextBtn');
     const playPauseBtn = document.getElementById('playPauseBtn');
     const topBtn = document.getElementById('goTopBtn');
+
+    // Check if channel is a priority channel
+    function isPriorityChannel(channelName) {
+        const lowerName = channelName.toLowerCase();
+        return PRIORITY_CHANNELS.some(priority => lowerName.includes(priority));
+    }
+
+    // Custom sort function - priority channels first
+    function customSortChannels(working, activeChannelUrl) {
+        // Separate priority and non-priority channels
+        const priorityChannels = [];
+        const normalChannels = [];
+        
+        working.forEach(ch => {
+            if (isPriorityChannel(ch.name)) {
+                priorityChannels.push(ch);
+            } else {
+                normalChannels.push(ch);
+            }
+        });
+        
+        // Sort each group alphabetically
+        priorityChannels.sort((a, b) => a.name.localeCompare(b.name));
+        normalChannels.sort((a, b) => a.name.localeCompare(b.name));
+        
+        // Move active channel to top if it's in priority list
+        const activeIndexInPriority = priorityChannels.findIndex(ch => ch.url === activeChannelUrl);
+        if (activeIndexInPriority > 0) {
+            const active = priorityChannels.splice(activeIndexInPriority, 1)[0];
+            priorityChannels.unshift(active);
+        }
+        
+        // Move active channel to top if it's in normal list
+        const activeIndexInNormal = normalChannels.findIndex(ch => ch.url === activeChannelUrl);
+        if (activeIndexInNormal > 0) {
+            const active = normalChannels.splice(activeIndexInNormal, 1)[0];
+            normalChannels.unshift(active);
+        }
+        
+        // Combine: priority channels first, then normal channels
+        return [...priorityChannels, ...normalChannels];
+    }
 
     function setupScrollDetection() {
         let scrollTimeout;
@@ -474,16 +518,12 @@ video {
             }
         });
         
-        working.sort((a, b) => a.name.localeCompare(b.name));
-        const activeIndex = working.findIndex(ch => ch.url === activeChannelUrl);
-        if (activeIndex > 0) {
-            const active = working.splice(activeIndex, 1)[0];
-            working.unshift(active);
-        }
+        // Use custom sort for working channels
+        const sortedWorking = customSortChannels(working, activeChannelUrl);
         
         offline.sort((a, b) => a.name.localeCompare(b.name));
         
-        return { working, offline };
+        return { working: sortedWorking, offline };
     }
 
     function getOrCreateCard(channel, isActive, isOffline) {
@@ -495,7 +535,6 @@ video {
             if (isOffline) existingCard.classList.add('offline');
             else existingCard.classList.remove('offline');
             
-            // Update badge text
             const badgeDiv = existingCard.querySelector('.status-badge');
             if (badgeDiv) {
                 if (isOffline) {
@@ -519,9 +558,14 @@ video {
         if (isActive) div.classList.add('active');
         if (isOffline) div.classList.add('offline');
         
+        // Add priority badge for special channels
+        const isPriority = isPriorityChannel(channel.name);
+        const priorityBadge = isPriority ? '<div style="font-size:8px; color:#4ade80; margin-top:4px;">⭐ Featured</div>' : '';
+        
         div.innerHTML = `
             <div class="channel-name">${escapeHtml(channel.name)}</div>
             ${channel.group ? `<div class="channel-group">${escapeHtml(channel.group)}</div>` : ''}
+            ${priorityBadge}
             ${isOffline ? '<div class="status-badge offline">● Offline</div>' : (isActive ? '<div class="status-badge playing">● Playing</div>' : '')}
         `;
         
@@ -550,9 +594,10 @@ video {
         
         // Add working channels section
         if (working.length > 0) {
+            const priorityCount = working.filter(ch => isPriorityChannel(ch.name)).length;
             const workingTitle = document.createElement('div');
             workingTitle.className = 'section-title';
-            workingTitle.innerHTML = `🟢 AVAILABLE · ${working.length}`;
+            workingTitle.innerHTML = priorityCount > 0 ? `🟢 AVAILABLE · ⭐ Featured (${priorityCount}) + ${working.length - priorityCount} others` : `🟢 AVAILABLE · ${working.length}`;
             fragment.appendChild(workingTitle);
             
             working.forEach((ch) => {
@@ -588,7 +633,8 @@ video {
         }
         
         const offlineCount = offline.length;
-        statsSpan.innerText = `${working.length} available · ${offlineCount} offline`;
+        const priorityWorkingCount = working.filter(ch => isPriorityChannel(ch.name)).length;
+        statsSpan.innerText = `${working.length} available (${priorityWorkingCount} featured) · ${offlineCount} offline`;
         
         if (autoScroll && shouldAutoScroll && !isUserScrolling) {
             setTimeout(() => {
@@ -645,7 +691,14 @@ video {
         
         filteredChannels = [...masterChannels];
         renderChannelGrid(true);
-        if (filteredChannels.length) playChannel(0);
+        
+        // Try to play a priority channel first if available
+        const priorityChannelIndex = masterChannels.findIndex(ch => isPriorityChannel(ch.name));
+        if (priorityChannelIndex !== -1) {
+            playChannel(priorityChannelIndex);
+        } else if (filteredChannels.length) {
+            playChannel(0);
+        }
         return true;
     }
 
