@@ -1,17 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-
+<title>Live TV Player</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
-<link rel="stylesheet"
-href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
 
 <style>
-
 *{
 margin:0;
 padding:0;
@@ -25,7 +21,6 @@ color:white;
 overflow-x:hidden;
 min-height:100vh;
 }
-
 
 /* PLAYER SECTION */
 .player-section {
@@ -87,31 +82,6 @@ transform:scale(1.1);
 box-shadow:0 0 25px rgba(255,0,0,0.8);
 }
 
-/* SEARCH */
-.search-container {
-    max-width: 600px;
-    margin: 20px auto;
-    padding: 0 20px;
-}
-
-.search-box input{
-width:100%;
-padding:14px 20px;
-font-size:16px;
-border:none;
-outline:none;
-border-radius: 50px;
-background: #111111;
-color:white;
-border: 1px solid #333333;
-transition:0.3s;
-}
-
-.search-box input:focus{
-border-color: #ff0000;
-box-shadow: 0 0 15px rgba(255,0,0,0.3);
-}
-
 /* CHANNEL GRID */
 .channel-grid-container {
     max-width: 1400px;
@@ -123,7 +93,7 @@ box-shadow: 0 0 15px rgba(255,0,0,0.3);
 display:grid;
 grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));
 gap:20px;
-padding:20px 0 40px;
+padding:30px 0 40px;
 }
 
 /* CHANNEL CARD */
@@ -164,6 +134,7 @@ color: #cccccc;
 margin-top: 8px;
 font-weight: 500;
 padding: 5px;
+word-break: break-word;
 }
 
 /* ACTIVE CHANNEL */
@@ -198,6 +169,14 @@ box-shadow:0 0 10px rgba(255,0,0,0.5);
 
 #topBtn:hover {
     transform: scale(1.1);
+}
+
+/* LOADING MESSAGE */
+.loading-msg {
+    text-align: center;
+    padding: 40px;
+    color: #ff0000;
+    font-size: 18px;
 }
 
 /* RESPONSIVE */
@@ -258,14 +237,9 @@ box-shadow:0 0 10px rgba(255,0,0,0.5);
 ::-webkit-scrollbar-thumb:hover {
     background: #cc0000;
 }
-
 </style>
-
 </head>
-
 <body>
-
-
 
 <!-- PLAYER SECTION -->
 <div class="player-section">
@@ -279,74 +253,150 @@ box-shadow:0 0 10px rgba(255,0,0,0.5);
 </div>
 </div>
 
-<!-- SEARCH -->
-<div class="search-container">
-<div class="search-box">
-<input type="text" id="search" placeholder="🔍 Search channels..." onkeyup="searchChannels()">
-</div>
-</div>
-
 <!-- CHANNELS -->
 <div class="channel-grid-container">
-<div class="channel-grid" id="channelGrid"></div>
+<div class="channel-grid" id="channelGrid">
+<div class="loading-msg">📡 Loading channels...</div>
+</div>
 </div>
 
 <button id="topBtn">↑</button>
 
 <script>
+// ===========================================
+// FINAL CODE - ALL ISSUES FIXED
+// ===========================================
 
-/* PLAYLIST */
+/* M3U PLAYLIST URL */
 const playlist = 'https://raw.githubusercontent.com/Rakib49/Rakibiptv/refs/heads/main/aynaott.m3u';
 
 let channels = [];
-let filteredChannels = [];
 let currentIndex = 0;
+let retryCount = 0;
+const maxRetries = 3;
 
-/* LOAD PLAYLIST */
-fetch(playlist)
-.then(r => r.text())
-.then(data => {
-    const lines = data.split('\n');
+/* LOAD PLAYLIST WITH CACHE BUSTING & RETRY */
+function loadPlaylist() {
+    const grid = document.getElementById('channelGrid');
+    grid.innerHTML = '<div class="loading-msg">📡 Loading channels... (Attempt ' + (retryCount + 1) + ')</div>';
     
-    for(let i = 0; i < lines.length; i++){
-        if(lines[i].startsWith('#EXTINF')){
-            const info = lines[i];
-            const url = lines[i+1];
-            const name = info.split(',')[1];
-            let logo = '';
-            const match = info.match(/tvg-logo="(.*?)"/);
-            if(match){ logo = match[1]; }
-            
-            channels.push({ name, url, logo });
+    // Add timestamp to prevent caching
+    const urlWithCache = playlist + '?t=' + Date.now();
+    
+    fetch(urlWithCache)
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
         }
-    }
-    
-    filteredChannels = channels;
-    renderChannels();
-    
-    if(channels.length > 0){
-        playChannel(0);
-    }
-});
+        return response.text();
+    })
+    .then(data => {
+        // Clear previous channels
+        channels = [];
+        
+        // Parse M3U file
+        const lines = data.split('\n');
+        let validChannels = 0;
+        
+        for(let i = 0; i < lines.length; i++){
+            const line = lines[i].trim();
+            if(line.startsWith('#EXTINF')){
+                const info = line;
+                const url = lines[i+1] ? lines[i+1].trim() : '';
+                
+                // Skip if no URL or URL is comment
+                if(!url || url.startsWith('#')) continue;
+                
+                // Extract channel name
+                let name = 'Unknown Channel';
+                const nameMatch = info.match(/,(.+)$/);
+                if(nameMatch && nameMatch[1]) {
+                    name = nameMatch[1].trim();
+                }
+                
+                // Extract logo URL
+                let logo = '';
+                const logoMatch = info.match(/tvg-logo="([^"]*)"/);
+                if(logoMatch && logoMatch[1]) {
+                    logo = logoMatch[1];
+                }
+                
+                // Only add if URL is valid
+                if(url && url.startsWith('http')) {
+                    channels.push({ name, url, logo });
+                    validChannels++;
+                }
+            }
+        }
+        
+        console.log(`✅ Loaded ${validChannels} channels`);
+        
+        if(channels.length === 0) {
+            grid.innerHTML = '<div class="loading-msg">❌ No channels found in playlist.<br>Check your M3U file format.</div>';
+            return;
+        }
+        
+        // Render channels
+        renderChannels();
+        
+        // Play first channel
+        if(channels.length > 0){
+            playChannel(0);
+        }
+        
+        retryCount = 0; // Reset retry count on success
+    })
+    .catch(error => {
+        console.error('Error loading playlist:', error);
+        
+        if(retryCount < maxRetries) {
+            retryCount++;
+            grid.innerHTML = `<div class="loading-msg">⚠️ Retry ${retryCount}/${maxRetries}...<br>Loading channels...</div>`;
+            setTimeout(loadPlaylist, 2000);
+        } else {
+            grid.innerHTML = `<div class="loading-msg">❌ Failed to load channels.<br><br>
+            🔧 Troubleshooting:<br>
+            1. Check if M3U URL is correct<br>
+            2. Make sure file is publicly accessible<br>
+            3. Try opening the URL directly in browser<br><br>
+            📡 URL: ${playlist.substring(0, 80)}...</div>`;
+        }
+    });
+}
 
+/* RENDER CHANNELS */
 function renderChannels(){
     const grid = document.getElementById('channelGrid');
     grid.innerHTML = '';
     
-    filteredChannels.forEach((ch, index) => {
+    if(channels.length === 0) {
+        grid.innerHTML = '<div class="loading-msg">❌ No channels available</div>';
+        return;
+    }
+    
+    channels.forEach((ch, idx) => {
         const div = document.createElement('div');
         div.className = 'channel';
+        if(idx === currentIndex) div.classList.add('active');
         
         div.innerHTML = `
             <img src="${ch.logo}" onerror="this.src='https://via.placeholder.com/80x80?text=TV'">
-            <div class="channel-name">${ch.name}</div>
+            <div class="channel-name">${escapeHtml(ch.name)}</div>
         `;
         
-        div.onclick = () => playChannel(channels.findIndex(c => c.url === ch.url));
+        div.onclick = () => playChannel(idx);
         grid.appendChild(div);
     });
 }
 
+/* ESCAPE HTML TO PREVENT XSS */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/* PLAY CHANNEL */
 function playChannel(index){
     if(index < 0 || index >= channels.length) return;
     
@@ -354,41 +404,85 @@ function playChannel(index){
     const video = document.getElementById('video');
     const channel = channels[index];
     
-    if(Hls.isSupported()){
-        if(window.hls) window.hls.destroy();
-        const hls = new Hls();
-        hls.loadSource(channel.url);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, function(){
-            video.play();
-        });
-        window.hls = hls;
+    // Show which channel is playing in console
+    console.log(`🎬 Playing: ${channel.name}`);
+    
+    // Destroy existing HLS instance
+    if(window.hls) {
+        window.hls.destroy();
+        window.hls = null;
+    }
+    
+    // Check if URL is HLS (.m3u8)
+    if(channel.url.includes('.m3u8') || Hls.isSupported()) {
+        if(Hls.isSupported()) {
+            window.hls = new Hls({
+                debug: false,
+                enableWorker: true,
+                lowLatencyMode: true
+            });
+            window.hls.loadSource(channel.url);
+            window.hls.attachMedia(video);
+            window.hls.on(Hls.Events.MANIFEST_PARSED, function(){
+                video.play().catch(e => console.log('Auto-play blocked:', e));
+            });
+            window.hls.on(Hls.Events.ERROR, function(event, data) {
+                if(data.fatal) {
+                    console.error('HLS Error:', data);
+                    // Try to play next channel if stream fails
+                    if(data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                        setTimeout(() => {
+                            if(currentIndex === index) {
+                                console.log('Stream failed, trying next channel...');
+                                nextChannel();
+                            }
+                        }, 3000);
+                    }
+                }
+            });
+        } else if(video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Safari native HLS
+            video.src = channel.url;
+            video.play().catch(e => console.log('Play error:', e));
+        } else {
+            console.error('HLS not supported');
+        }
     } else {
+        // Direct stream (MP4, etc.)
         video.src = channel.url;
-        video.play();
+        video.play().catch(e => console.log('Play error:', e));
     }
     
     // Update active class
-    document.querySelectorAll('.channel').forEach(el => {
+    document.querySelectorAll('.channel').forEach((el, i) => {
         el.classList.remove('active');
+        if(i === index) el.classList.add('active');
     });
-    const cards = document.querySelectorAll('.channel');
-    const filteredIndex = filteredChannels.findIndex(c => c.url === channel.url);
-    if(cards[filteredIndex]) cards[filteredIndex].classList.add('active');
+    
+    // Scroll to active channel
+    setTimeout(() => {
+        const activeChannel = document.querySelector('.channel.active');
+        if(activeChannel) {
+            activeChannel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }, 100);
 }
 
+/* NEXT CHANNEL */
 function nextChannel(){
     let newIndex = currentIndex + 1;
     if(newIndex >= channels.length) newIndex = 0;
     playChannel(newIndex);
 }
 
+/* PREVIOUS CHANNEL */
 function prevChannel(){
     let newIndex = currentIndex - 1;
     if(newIndex < 0) newIndex = channels.length - 1;
     playChannel(newIndex);
 }
 
+/* TOGGLE PLAY/PAUSE */
 function togglePlay(){
     const video = document.getElementById('video');
     if(video.paused){
@@ -398,21 +492,7 @@ function togglePlay(){
     }
 }
 
-function searchChannels(){
-    const input = document.getElementById('search').value.toLowerCase();
-    filteredChannels = channels.filter(ch => ch.name.toLowerCase().includes(input));
-    renderChannels();
-    
-    // Try to keep current channel active if still visible
-    const currentChannel = channels[currentIndex];
-    const stillVisible = filteredChannels.some(ch => ch.url === currentChannel?.url);
-    if(!stillVisible && filteredChannels.length > 0){
-        const newIndex = channels.findIndex(ch => ch.url === filteredChannels[0].url);
-        playChannel(newIndex);
-    }
-}
-
-// Auto hide controls
+/* AUTO HIDE CONTROLS */
 const controls = document.querySelector('.custom-controls');
 let hideTimeout;
 
@@ -425,16 +505,48 @@ function showUI(){
 }
 
 showUI();
+
+// Show controls on mouse move or click
 document.querySelector('.player-box').addEventListener('click', () => showUI());
 document.querySelector('.player-box').addEventListener('mousemove', () => showUI());
 
-// Top button
-document.getElementById('topBtn').onclick = () => window.scrollTo({top: 0, behavior: 'smooth'});
+/* TOP BUTTON - SCROLL TO TOP */
+document.getElementById('topBtn').onclick = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
 window.addEventListener('scroll', () => {
-    document.getElementById('topBtn').style.display = window.scrollY > 300 ? 'block' : 'none';
+    const btn = document.getElementById('topBtn');
+    if(btn) {
+        btn.style.display = window.scrollY > 300 ? 'block' : 'none';
+    }
+});
+
+/* KEYBOARD SHORTCUTS */
+document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevChannel();
+    } else if(e.key === 'ArrowRight') {
+        e.preventDefault();
+        nextChannel();
+    } else if(e.key === ' ' || e.key === 'Space') {
+        e.preventDefault();
+        togglePlay();
+    }
+});
+
+/* INITIALIZE */
+loadPlaylist();
+
+// Force reload when page becomes visible (for mobile)
+document.addEventListener('visibilitychange', () => {
+    if(!document.hidden) {
+        // Optional: refresh playlist when returning to page
+        // loadPlaylist();
+    }
 });
 
 </script>
-
 </body>
 </html>
