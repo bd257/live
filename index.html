@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live TV Player</title>
+    <title>Live TV Player - Dual M3U Support</title>
     <style>
         * {
             margin: 0;
@@ -21,6 +21,31 @@
             padding: 15px;
             margin-bottom: 20px;
             border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .playlist-selector {
+            display: flex;
+            gap: 10px;
+        }
+        .playlist-btn {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .playlist-btn.active {
+            background: #ffffff;
+            color: #000000;
+            border-color: #ffffff;
+        }
+        .playlist-btn:hover {
+            background: #2a2a2a;
         }
         .player-section {
             background: #000000;
@@ -38,14 +63,38 @@
             padding: 10px;
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .channel-info {
+            flex: 1;
+        }
+        .channel-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        .channel-category {
+            font-size: 0.8rem;
+            color: #666;
         }
         .channel-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
             gap: 10px;
             margin-top: 20px;
-            max-height: 400px;
+            max-height: 450px;
             overflow-y: auto;
+        }
+        .channel-grid::-webkit-scrollbar {
+            width: 8px;
+        }
+        .channel-grid::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        .channel-grid::-webkit-scrollbar-thumb {
+            background: #2a2a2a;
+            border-radius: 4px;
         }
         .channel-card {
             background: #0a0a0a;
@@ -53,9 +102,11 @@
             padding: 10px;
             border-radius: 8px;
             cursor: pointer;
+            transition: all 0.2s;
         }
         .channel-card:hover {
             background: #1a1a1a;
+            transform: translateX(5px);
         }
         .channel-card.active {
             border-color: #ffffff;
@@ -101,10 +152,29 @@
             border: 1px solid #1a1a1a;
             padding: 5px 15px;
             border-radius: 20px;
+            cursor: pointer;
         }
         .cat-btn.active {
             background: white;
             color: black;
+        }
+        .stats {
+            color: #666;
+            font-size: 0.8rem;
+            margin-top: 10px;
+            text-align: center;
+        }
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .channel-grid {
+                grid-template-columns: 1fr;
+            }
+            .playlist-selector button {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -112,6 +182,10 @@
 <body>
     <div class="header">
         <h1>📺 Live TV Player</h1>
+        <div class="playlist-selector">
+            <button class="playlist-btn" id="btn-sports" onclick="switchPlaylist('sports')">⚽ Sports-138</button>
+            <button class="playlist-btn" id="btn-aynaott" onclick="switchPlaylist('aynaott')">📺 AynaOTT</button>
+        </div>
     </div>
 
     <div class="error-box" id="errorBox"></div>
@@ -120,9 +194,9 @@
     <div class="player-section">
         <video id="video" controls></video>
         <div class="player-controls">
-            <div>
-                <div id="currentChannel">No Channel</div>
-                <small id="currentCategory">-</small>
+            <div class="channel-info">
+                <div class="channel-name" id="currentChannel">No Channel</div>
+                <div class="channel-category" id="currentCategory">-</div>
             </div>
             <div>
                 <button onclick="previousChannel()">◀ Previous</button>
@@ -133,14 +207,24 @@
 
     <div class="categories" id="categories"></div>
     <div class="channel-grid" id="channelList"></div>
+    <div class="stats" id="stats"></div>
 
     <script>
         // ===========================================
-        // 🔴 CHANGE THIS LINE - YOUR M3U FILE NAME 🔴
+        // M3U FILES CONFIGURATION
         // ===========================================
-        const M3U_FILE = 'Sports-138.m3u';
-        // ===========================================
+        const PLAYLISTS = {
+            sports: {
+                name: 'Sports-138',
+                file: 'Sports-138.m3u'
+            },
+            aynaott: {
+                name: 'AynaOTT',
+                file: 'aynaott.m3u'
+            }
+        };
         
+        let currentPlaylist = 'sports';
         let channels = [];
         let currentIndex = 0;
         let currentCategory = 'all';
@@ -151,7 +235,9 @@
             const info = document.getElementById('infoBox');
             info.innerHTML = msg;
             info.style.display = 'block';
-            setTimeout(() => info.style.display = 'none', 3000);
+            setTimeout(() => {
+                if (info.style.display === 'block') info.style.display = 'none';
+            }, 3000);
         }
         
         function showError(msg) {
@@ -165,22 +251,55 @@
             document.getElementById('errorBox').style.display = 'none';
         }
         
+        function switchPlaylist(playlistId) {
+            if (!PLAYLISTS[playlistId]) return;
+            
+            currentPlaylist = playlistId;
+            
+            // Update active button
+            document.querySelectorAll('.playlist-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(`btn-${playlistId}`).classList.add('active');
+            
+            // Clear current channels
+            channels = [];
+            currentIndex = 0;
+            currentCategory = 'all';
+            
+            // Load new playlist
+            loadM3U();
+        }
+        
         async function loadM3U() {
-            showInfo('📡 Loading ' + M3U_FILE + '...');
+            const playlist = PLAYLISTS[currentPlaylist];
+            const m3uFile = playlist.file;
+            
+            showInfo(`📡 Loading ${playlist.name} (${m3uFile})...`);
+            hideError();
+            
+            // Show loading in channel list
+            document.getElementById('channelList').innerHTML = '<div style="text-align:center;padding:20px;color:#666;">Loading channels...</div>';
+            document.getElementById('stats').innerHTML = '';
             
             try {
-                const response = await fetch(M3U_FILE);
+                const response = await fetch(m3uFile);
                 
                 if (!response.ok) {
-                    throw new Error(`Cannot find ${M3U_FILE} (HTTP ${response.status})`);
+                    throw new Error(`Cannot find ${m3uFile} (HTTP ${response.status})`);
                 }
                 
                 const content = await response.text();
-                console.log('File loaded, length:', content.length);
+                console.log(`${playlist.name} loaded, size: ${content.length} bytes`);
+                
+                if (!content.trim() || content.length < 10) {
+                    throw new Error(`${m3uFile} is empty or invalid`);
+                }
                 
                 // Parse M3U
                 const lines = content.split('\n');
                 let currentChannel = null;
+                let channelCount = 0;
                 
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i].trim();
@@ -207,30 +326,39 @@
                     else if (!line.startsWith('#') && currentChannel) {
                         currentChannel.url = line;
                         channels.push(currentChannel);
+                        channelCount++;
                         currentChannel = null;
                     }
                 }
                 
                 if (channels.length === 0) {
-                    throw new Error('No channels found in M3U file');
+                    throw new Error(`No channels found in ${m3uFile}. Check file format.`);
                 }
                 
-                showInfo(`✅ Loaded ${channels.length} channels!`);
+                showInfo(`✅ ${playlist.name}: Loaded ${channels.length} channels!`);
                 setupCategories();
                 displayChannels();
+                
+                // Update stats
+                const uniqueCategories = [...new Set(channels.map(c => c.category))];
+                document.getElementById('stats').innerHTML = `📡 ${channels.length} channels | 📁 ${uniqueCategories.length} categories`;
                 
                 if (channels.length > 0) {
                     loadChannel(0);
                 }
                 
             } catch (error) {
-                showError(`❌ Failed: ${error.message}<br><br>
+                showError(`❌ Failed to load ${playlist.file}<br><br>
                     <strong>Solutions:</strong><br>
-                    1. Make sure "${M3U_FILE}" is in the SAME folder as this HTML file<br>
-                    2. If using local file, run a local server:<br>
+                    1. Make sure "${playlist.file}" is in the SAME folder as this HTML file<br>
+                    2. Check spelling: ${playlist.file} (case-sensitive)<br>
+                    3. Open the file in Notepad to verify it has content<br>
+                    4. Run a local server:<br>
                     &nbsp;&nbsp; <code>python -m http.server 8000</code><br>
-                    3. Then open <code>http://localhost:8000</code><br>
-                    4. Check if file name is spelled correctly (case-sensitive)`);
+                    5. Then open <code>http://localhost:8000</code><br><br>
+                    <strong>Error details:</strong> ${error.message}`);
+                
+                document.getElementById('channelList').innerHTML = `<div style="text-align:center;padding:20px;color:#ff6666;">❌ Failed to load ${playlist.file}<br>Check error message above</div>`;
             }
         }
         
@@ -242,7 +370,7 @@
             cats.forEach(cat => {
                 const btn = document.createElement('button');
                 btn.className = 'cat-btn' + (cat === 'all' ? ' active' : '');
-                btn.textContent = cat === 'all' ? '📺 All' : `📁 ${cat}`;
+                btn.textContent = cat === 'all' ? '📺 All Channels' : `📁 ${cat} (${channels.filter(c => c.category === cat).length})`;
                 btn.onclick = () => {
                     currentCategory = cat;
                     document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
@@ -261,17 +389,23 @@
             const container = document.getElementById('channelList');
             container.innerHTML = '';
             
+            if (filtered.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:20px;color:#666;">No channels in this category</div>';
+                return;
+            }
+            
             filtered.forEach((channel, idx) => {
                 const originalIndex = channels.findIndex(c => c.url === channel.url);
                 const card = document.createElement('div');
                 card.className = 'channel-card' + (originalIndex === currentIndex ? ' active' : '');
                 card.innerHTML = `
                     <div style="display:flex; align-items:center; gap:10px;">
-                        <div style="font-size:24px;">📺</div>
-                        <div>
-                            <div><strong>${channel.name}</strong></div>
+                        <div style="font-size:24px;">${channel.logo ? '📺' : '📡'}</div>
+                        <div style="flex:1;">
+                            <div><strong>${channel.name.substring(0, 50)}</strong></div>
                             <small style="color:#666;">${channel.category}</small>
                         </div>
+                        <div style="font-size:12px; color:#4CAF50;">▶</div>
                     </div>
                 `;
                 card.onclick = () => loadChannel(originalIndex);
@@ -288,6 +422,7 @@
             document.getElementById('currentChannel').innerHTML = channel.name;
             document.getElementById('currentCategory').innerHTML = channel.category;
             
+            // Update active card
             document.querySelectorAll('.channel-card').forEach((card, i) => {
                 card.classList.remove('active');
             });
@@ -295,7 +430,7 @@
             if (cards[index]) cards[index].classList.add('active');
             
             playStream(channel.url);
-            console.log('Playing:', channel.name, channel.url);
+            console.log(`🎬 Playing [${PLAYLISTS[currentPlaylist].name}]: ${channel.name}`);
         }
         
         function playStream(url) {
@@ -307,48 +442,62 @@
             hideError();
             
             if (!url) {
-                showError('No stream URL available');
+                showError('No stream URL available for this channel');
                 return;
             }
             
-            if (url.includes('.m3u8')) {
+            console.log('Stream URL:', url);
+            
+            if (url.includes('.m3u8') || url.includes('m3u8')) {
                 if (Hls.isSupported()) {
-                    hls = new Hls();
+                    hls = new Hls({
+                        debug: false,
+                        enableWorker: true,
+                        lowLatencyMode: true
+                    });
                     hls.loadSource(url);
                     hls.attachMedia(video);
                     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        video.play().catch(e => console.log('Play error:', e));
+                        video.play().catch(e => console.log('Auto-play blocked:', e));
                     });
                     hls.on(Hls.Events.ERROR, (e, data) => {
                         if (data.fatal) {
-                            showError('Stream failed: ' + url);
+                            showError(`Stream failed: The channel may be offline<br><small>${url.substring(0, 80)}</small>`);
                         }
                     });
                 } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = url;
                     video.play().catch(e => console.log('Play error:', e));
                 } else {
-                    showError('HLS not supported');
+                    showError('HLS streaming not supported in this browser');
                 }
             } else {
                 video.src = url;
-                video.play().catch(e => showError('Cannot play: ' + e.message));
+                video.play().catch(e => showError(`Cannot play: ${e.message}`));
             }
         }
         
         function previousChannel() {
+            if (channels.length === 0) return;
             let newIndex = currentIndex - 1;
             if (newIndex < 0) newIndex = channels.length - 1;
             loadChannel(newIndex);
         }
         
         function nextChannel() {
+            if (channels.length === 0) return;
             let newIndex = currentIndex + 1;
             if (newIndex >= channels.length) newIndex = 0;
             loadChannel(newIndex);
         }
         
-        // Start
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') previousChannel();
+            if (e.key === 'ArrowRight') nextChannel();
+        });
+        
+        // Start with Sports-138
         loadM3U();
     </script>
 </body>
