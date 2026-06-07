@@ -27,8 +27,6 @@ http://79.127.207.193:80/ArtSport4/playlist.m3u8
 http://79.127.207.193:80/ArtSport5/playlist.m3u8
 #EXTINF:-1 ,Art Sport 6 HD
 http://79.127.207.193:80/ArtSport6/playlist.m3u8
-#EXTINF:-1 ,5 SPORT 🇮🇱
-http://185.132.134.159:80/sport5/index.m3u8
 #EXTINF:-1 ,SCTV 22 - SSPORT 1 🇻🇳
 https://liveh34.vtvprime.vn/hls/SCTV22/04.m3u8
 #EXTINF:-1 ,SKY SPORT LALIGA 🇲🇽
@@ -127,17 +125,6 @@ http://wo0dyefk.dienalt.org/iptv/DV3AC2Q6YSR9XE/2560/index.m3u8
 https://tv.cdn.xsg.ge/gpb-2tv/index.m3u8
 #EXTINF:-1 ,ORF+ 🇦🇹
 http://212.186.45.34:9981/stream/channelid/906723447
-#EXTINF:-1 ,5 SPORT 🇮🇱
-http://185.132.134.159:80/sport1/index.m3u8
-#EXTINF:-1 ,2 SPORT 🇮🇱
-http://185.132.134.159:80/sport2/index.m3u8
-#EXTINF:-1 ,3 SPORT 🇮🇱
-http://185.132.134.159:80/sport3/index.m3u8
-#EXTINF:-1 ,4 SPORT 🇮🇱
-http://185.132.134.159:80/sport4/index.m3u8
-#EXTINF:-1 ,5 SPORT 🇮🇱
-http://wo0dyefk.dienalt.org/iptv/DV3AC2Q6YSR9XE/2558/index.m3u8
-#EXTINF:-1 ,6 SPORT 🇮🇱
 http://185.132.134.159:80/sport6/index.m3u8
 #EXTINF:-1 ,TELEFE 🇦🇷
 http://200.115.120.1:8000/play/ca016/index.m3u8
@@ -183,10 +170,7 @@ http://mmn.mypsx.net:1935/live/mmnhdsport/chunklist.m3u8
 https://shls-masr-ak.akamaized.net/out/v1/d5036cabf11e45bf9d0db410ca135c18/index.m3u8
 #EXTINF:-1 ,TELETRAK 🇨🇱
 http://unlimited6-cl.dps.live/sportinghd/sportinghd.smil/playlist.m3u8
-#EXTINF:-1 ,Sport5 🇮🇱
-https://rgelive.akamaized.net/hls/live/2043151/radiolive/playlist.m3u8
-#EXTINF:-1 ,Sport5 🇮🇱
-https://rgelive.akamaized.net/hls/live/2043095/live3/playlist.m3u8
+
 #EXTINF:-1 ,TUDN 🇲🇽
 http://45.5.119.43:4000/play/a05q/index.m3u8
 #EXTINF:-1 ,ESPN 🇦🇷
