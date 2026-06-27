@@ -1,373 +1,310 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Live TV</title>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-<style>
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-}
-
-body {
-    background: #000000;
-    color: #ffffff;
-    overflow-x: hidden;
-}
-
-/* Player Section - Minimal */
-.player-wrapper {
-    max-width: 100%;
-    margin: 0;
-    padding: 0;
-}
-.player-box {
-    position: relative;
-    background: #000000;
-    width: 100%;
-}
-video {
-    width: 100%;
-    height: auto;
-    max-height: 60vh;
-    background: #000000;
-    display: block;
-    aspect-ratio: 16 / 9;
-    object-fit: contain;
-}
-
-/* Minimal Controls */
-.custom-controls {
-    position: absolute;
-    bottom: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 12px;
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(8px);
-    padding: 8px 16px;
-    border-radius: 40px;
-    z-index: 20;
-    transition: opacity 0.3s ease;
-}
-.control-btn {
-    background: transparent;
-    border: none;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    font-size: 18px;
-    color: rgba(255,255,255,0.9);
-    cursor: pointer;
-    transition: 0.2s;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-.control-btn:hover {
-    background: rgba(255,255,255,0.15);
-    color: white;
-}
-
-/* Search */
-.search-area {
-    max-width: 600px;
-    margin: 16px auto 12px;
-    padding: 0 16px;
-}
-.search-box {
-    width: 100%;
-    background: #111111;
-    border: 1px solid #2a2a2a;
-    border-radius: 30px;
-    padding: 10px 18px;
-    color: white;
-    font-size: 14px;
-    outline: none;
-    transition: 0.2s;
-}
-.search-box:focus {
-    border-color: #666;
-}
-
-/* Channel Grid - GRID VIEW */
-.channel-container {
-    max-width: 100%;
-    margin: 0 auto;
-    padding: 12px 16px 80px;
-}
-.channel-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 12px;
-}
-.channel-card {
-    background: #0a0a0a;
-    padding: 16px 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    cursor: pointer;
-    border: 1px solid #1f1f1f;
-    border-radius: 16px;
-    transition: all 0.2s ease;
-    position: relative;
-}
-.channel-card:hover {
-    background: #141414;
-    border-color: #444;
-    transform: translateY(-2px);
-}
-.channel-card.active {
-    background: #1a1a1a;
-    border: 2px solid #4ade80;
-    box-shadow: 0 0 15px rgba(74,222,128,0.2);
-}
-.channel-card.offline {
-    opacity: 0.5;
-}
-.channel-name {
-    font-size: 13px;
-    font-weight: 500;
-    color: #eeeeee;
-    line-height: 1.4;
-    word-break: break-word;
-    margin-bottom: 6px;
-}
-.channel-group {
-    font-size: 10px;
-    color: #666666;
-}
-.status-badge {
-    font-size: 9px;
-    padding: 2px 6px;
-    border-radius: 10px;
-    margin-top: 6px;
-    display: inline-block;
-}
-.status-badge.playing {
-    color: #4ade80;
-    background: rgba(74,222,128,0.1);
-    border-radius: 12px;
-    padding: 2px 8px;
-}
-.status-badge.offline {
-    color: #ef4444;
-    background: rgba(239,68,68,0.1);
-    border-radius: 12px;
-    padding: 2px 8px;
-}
-
-/* Section Titles for Grid */
-.section-title {
-    grid-column: 1 / -1;
-    padding: 12px 12px 8px 12px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #4ade80;
-    letter-spacing: 0.5px;
-    background: transparent;
-    border-left: none;
-    margin-top: 16px;
-    border-bottom: 1px solid #2a2a2a;
-}
-.section-title.offline-title {
-    color: #ef4444;
-}
-.section-title:first-of-type {
-    margin-top: 0;
-}
-
-/* Status Messages */
-.status-message {
-    text-align: center;
-    padding: 48px 20px;
-    color: #888;
-    background: #000;
-    font-size: 14px;
-    grid-column: 1 / -1;
-}
-.loading-dots::after {
-    content: ' ...';
-    animation: dots 1.2s steps(3, end) infinite;
-}
-@keyframes dots { 0% { content: ' .'; } 33% { content: ' ..'; } 66% { content: ' ...'; } }
-
-/* Scroll to Top */
-#goTopBtn {
-    position: fixed;
-    right: 16px;
-    bottom: 24px;
-    background: rgba(30,30,30,0.8);
-    backdrop-filter: blur(8px);
-    border: none;
-    color: #ccc;
-    width: 40px;
-    height: 40px;
-    border-radius: 20px;
-    font-size: 18px;
-    cursor: pointer;
-    display: none;
-    z-index: 99;
-}
-#goTopBtn:hover {
-    background: rgba(255,255,255,0.2);
-    color: white;
-}
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: #111; }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-
-/* Channel Stats */
-.channel-stats {
-    text-align: center;
-    font-size: 11px;
-    color: #555;
-    padding: 8px 16px;
-    letter-spacing: 0.3px;
-}
-
-/* Footer Styling */
-.site-footer {
-    background: linear-gradient(180deg, #050505, #000000);
-    border-top: 1px solid #1a1a1a;
-    padding: 20px 16px 30px;
-    margin-top: 20px;
-    text-align: center;
-}
-.footer-content {
-    max-width: 600px;
-    margin: 0 auto;
-}
-.footer-text {
-    font-size: 11px;
-    color: #555;
-    margin-bottom: 12px;
-    letter-spacing: 0.5px;
-}
-.footer-link {
-    color: #666;
-    text-decoration: none;
-    font-size: 11px;
-    transition: color 0.2s;
-    word-break: break-all;
-}
-.footer-link:hover {
-    color: #4ade80;
-}
-.footer-divider {
-    width: 40px;
-    height: 1px;
-    background: #2a2a2a;
-    margin: 12px auto;
-}
-
-@media (max-width: 640px) {
-    .channel-grid {
-        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-        gap: 10px;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <title>FIFA · Live TV</title>
+  <!-- hls.js for HLS streaming -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     }
-    .channel-name {
-        font-size: 12px;
+    body {
+      background: #000;
+      color: #eee;
+      overflow-x: hidden;
+    }
+    .player-wrapper {
+      max-width: 100%;
+      margin: 0;
+      padding: 0;
+      background: #000;
+    }
+    .player-box {
+      position: relative;
+      width: 100%;
+      background: #000;
+    }
+    video {
+      width: 100%;
+      height: auto;
+      max-height: 60vh;
+      background: #000;
+      display: block;
+      aspect-ratio: 16 / 9;
+      object-fit: contain;
+    }
+    /* minimal floating controls */
+    .custom-controls {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(6px);
+      padding: 6px 16px;
+      border-radius: 40px;
+      z-index: 20;
+      transition: opacity 0.3s ease;
     }
     .control-btn {
-        width: 36px;
-        height: 36px;
-        font-size: 16px;
+      background: transparent;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 18px;
+      color: rgba(255,255,255,0.9);
+      cursor: pointer;
+      transition: 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
-    .custom-controls {
-        gap: 8px;
-        padding: 6px 14px;
+    .control-btn:hover {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+    .search-area {
+      max-width: 600px;
+      margin: 14px auto 10px;
+      padding: 0 16px;
+    }
+    .search-box {
+      width: 100%;
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 30px;
+      padding: 10px 18px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: 0.2s;
+    }
+    .search-box:focus {
+      border-color: #4ade80;
+    }
+    .channel-container {
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 12px 16px 80px;
+    }
+    .channel-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
     }
     .channel-card {
-        padding: 12px 8px;
+      background: #0a0a0a;
+      padding: 16px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      cursor: pointer;
+      border: 1px solid #1f1f1f;
+      border-radius: 16px;
+      transition: all 0.2s ease;
+      position: relative;
     }
-}
-
-@media (max-width: 480px) {
-    .channel-grid {
-        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-        gap: 8px;
+    .channel-card:hover {
+      background: #141414;
+      border-color: #444;
+      transform: translateY(-2px);
+    }
+    .channel-card.active {
+      background: #1a1a1a;
+      border: 2px solid #4ade80;
+      box-shadow: 0 0 18px rgba(74,222,128,0.15);
+    }
+    .channel-card.offline {
+      opacity: 0.5;
     }
     .channel-name {
-        font-size: 11px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #eee;
+      line-height: 1.4;
+      word-break: break-word;
+      margin-bottom: 4px;
+    }
+    .channel-group {
+      font-size: 10px;
+      color: #666;
+    }
+    .status-badge {
+      font-size: 9px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      margin-top: 6px;
+      display: inline-block;
+    }
+    .status-badge.playing {
+      color: #4ade80;
+      background: rgba(74,222,128,0.12);
+    }
+    .status-badge.offline {
+      color: #ef4444;
+      background: rgba(239,68,68,0.12);
     }
     .section-title {
-        font-size: 12px;
+      grid-column: 1 / -1;
+      padding: 12px 12px 6px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #4ade80;
+      letter-spacing: 0.3px;
+      border-bottom: 1px solid #2a2a2a;
+      margin-top: 14px;
     }
-}
-</style>
+    .section-title.offline-title {
+      color: #ef4444;
+    }
+    .section-title:first-of-type {
+      margin-top: 0;
+    }
+    .status-message {
+      text-align: center;
+      padding: 48px 20px;
+      color: #888;
+      background: #000;
+      font-size: 14px;
+      grid-column: 1 / -1;
+    }
+    .loading-dots::after {
+      content: ' ...';
+      animation: dots 1.2s steps(3, end) infinite;
+    }
+    @keyframes dots { 0% { content: ' .'; } 33% { content: ' ..'; } 66% { content: ' ...'; } }
+    .channel-stats {
+      text-align: center;
+      font-size: 11px;
+      color: #555;
+      padding: 6px 16px 4px;
+      letter-spacing: 0.3px;
+    }
+    .site-footer {
+      background: linear-gradient(180deg, #050505, #000);
+      border-top: 1px solid #1a1a1a;
+      padding: 20px 16px 30px;
+      margin-top: 10px;
+      text-align: center;
+    }
+    .footer-content {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .footer-text {
+      font-size: 11px;
+      color: #555;
+      margin-bottom: 8px;
+      letter-spacing: 0.4px;
+    }
+    .footer-link {
+      color: #666;
+      text-decoration: none;
+      font-size: 11px;
+      transition: color 0.2s;
+    }
+    .footer-link:hover {
+      color: #4ade80;
+    }
+    .footer-divider {
+      width: 40px;
+      height: 1px;
+      background: #2a2a2a;
+      margin: 10px auto;
+    }
+    #goTopBtn {
+      position: fixed;
+      right: 16px;
+      bottom: 24px;
+      background: rgba(30,30,30,0.8);
+      backdrop-filter: blur(8px);
+      border: none;
+      color: #ccc;
+      width: 40px;
+      height: 40px;
+      border-radius: 20px;
+      font-size: 18px;
+      cursor: pointer;
+      display: none;
+      z-index: 99;
+    }
+    #goTopBtn:hover {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #111; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+    @media (max-width: 640px) {
+      .channel-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+      .channel-name { font-size: 12px; }
+      .control-btn { width: 36px; height: 36px; font-size: 16px; }
+      .custom-controls { gap: 8px; padding: 6px 14px; }
+    }
+    @media (max-width: 480px) {
+      .channel-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+      .channel-name { font-size: 11px; }
+    }
+  </style>
 </head>
 <body>
-
 <div class="player-wrapper">
-    <div class="player-box">
-        <video id="videoPlayer" autoplay playsinline controls></video>
-        <div class="custom-controls" id="customControls">
-            <button class="control-btn" id="prevBtn">◀</button>
-            <button class="control-btn" id="playPauseBtn">▶</button>
-            <button class="control-btn" id="nextBtn">▶</button>
-        </div>
+  <div class="player-box">
+    <video id="videoPlayer" autoplay playsinline controls></video>
+    <div class="custom-controls" id="customControls">
+      <button class="control-btn" id="prevBtn">◀</button>
+      <button class="control-btn" id="playPauseBtn">▶</button>
+      <button class="control-btn" id="nextBtn">▶</button>
     </div>
+  </div>
 </div>
 
 <div class="search-area">
-    <input type="text" id="searchInput" class="search-box" placeholder="Search channels..." autocomplete="off">
+  <input type="text" id="searchInput" class="search-box" placeholder="Search channels..." autocomplete="off">
 </div>
 
 <div class="channel-container">
-    <div class="channel-grid" id="channelGrid">
-        <div class="status-message">Loading channels<span class="loading-dots"></span></div>
-    </div>
+  <div class="channel-grid" id="channelGrid">
+    <div class="status-message">Loading channels<span class="loading-dots"></span></div>
+  </div>
 </div>
-
 <div id="channelStats" class="channel-stats"></div>
 
 <footer class="site-footer">
-    <div class="footer-content">
-        <div class="footer-divider"></div>
-        <div class="footer-text">
-            Source: <a href="https://rakib49.github.io/Rakibiptv/" class="footer-link">Rakib IPTV</a>
-        </div>
-        <div class="footer-text">
-            All content and streams are the sole responsibility of Rakib IPTV
-        </div>
-    </div>
+  <div class="footer-content">
+    <div class="footer-divider"></div>
+    <div class="footer-text">Source: <a href="#" class="footer-link">fifa.m3u</a></div>
+    <div class="footer-text">All streams are provided by the playlist owner</div>
+  </div>
 </footer>
-
 <button id="goTopBtn">↑</button>
 
 <script>
-    // M3U LINKS
-    const PLAYLIST_URLS = [
-        "https://raw.githubusercontent.com/bd257/live/refs/heads/main/aynaott.m3u",
-        "https://raw.githubusercontent.com/bd257/live/refs/heads/main/Sports-138.m3u"
+  (function() {
+    // ----- ONLY ONE M3U: fifa.m3u -----
+    const PLAYLIST_URL = "https://raw.githubusercontent.com/bd257/live/refs/heads/main/fifa.m3u";
+
+    // Priority keywords: channels containing these appear first (featured)
+    const PRIORITY_KEYWORDS = [
+      "fifa", "world cup", "wc", "qatar", "2026", "fifa+", "fifa tv",
+      "btv", "t sports", "tsports", "sports"
     ];
 
-    // Priority channels - these will appear first
-    const PRIORITY_CHANNELS = [
-        "btv", "b tv", "btv world", "btv national",
-        "tsports", "t sports", "t sports hd",
-        "fifa", "fifa world cup", "fifa+", "fifa+ channel"
-    ];
-
-    let masterChannels = [];      
+    let masterChannels = [];
     let filteredChannels = [];
     let currentIndex = 0;
     let currentHls = null;
     let isLoading = false;
-    let channelStatus = new Map();
-    let shouldAutoScroll = true;
-    let isUserScrolling = false;
-    
+    let channelStatus = new Map(); // url -> true=offline
     let cardCache = new Map();
 
     const video = document.getElementById('videoPlayer');
@@ -378,483 +315,386 @@ video {
     const nextBtn = document.getElementById('nextBtn');
     const playPauseBtn = document.getElementById('playPauseBtn');
     const topBtn = document.getElementById('goTopBtn');
-
-    // Check if channel is a priority channel
-    function isPriorityChannel(channelName) {
-        const lowerName = channelName.toLowerCase();
-        return PRIORITY_CHANNELS.some(priority => lowerName.includes(priority));
-    }
-
-    // Custom sort function - priority channels first
-    function customSortChannels(working, activeChannelUrl) {
-        // Separate priority and non-priority channels
-        const priorityChannels = [];
-        const normalChannels = [];
-        
-        working.forEach(ch => {
-            if (isPriorityChannel(ch.name)) {
-                priorityChannels.push(ch);
-            } else {
-                normalChannels.push(ch);
-            }
-        });
-        
-        // Sort each group alphabetically
-        priorityChannels.sort((a, b) => a.name.localeCompare(b.name));
-        normalChannels.sort((a, b) => a.name.localeCompare(b.name));
-        
-        // Move active channel to top if it's in priority list
-        const activeIndexInPriority = priorityChannels.findIndex(ch => ch.url === activeChannelUrl);
-        if (activeIndexInPriority > 0) {
-            const active = priorityChannels.splice(activeIndexInPriority, 1)[0];
-            priorityChannels.unshift(active);
-        }
-        
-        // Move active channel to top if it's in normal list
-        const activeIndexInNormal = normalChannels.findIndex(ch => ch.url === activeChannelUrl);
-        if (activeIndexInNormal > 0) {
-            const active = normalChannels.splice(activeIndexInNormal, 1)[0];
-            normalChannels.unshift(active);
-        }
-        
-        // Combine: priority channels first, then normal channels
-        return [...priorityChannels, ...normalChannels];
-    }
-
-    function setupScrollDetection() {
-        let scrollTimeout;
-        window.addEventListener('scroll', () => {
-            isUserScrolling = true;
-            shouldAutoScroll = false;
-            clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(() => {
-                isUserScrolling = false;
-                setTimeout(() => { shouldAutoScroll = true; }, 3000);
-            }, 150);
-        });
-    }
-    
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
-    }
-
-    function getGroupTitle(infoLine) {
-        const match = infoLine.match(/group-title="([^"]*)"/i);
-        return match ? match[1] : '';
-    }
-
-    function parseM3UContent(content, sourceName = '') {
-        const lines = content.split(/\r?\n/);
-        const channels = [];
-        for (let i = 0; i < lines.length; i++) {
-            let line = lines[i].trim();
-            if (line.startsWith('#EXTINF')) {
-                const infoLine = line;
-                const urlLine = (i + 1 < lines.length) ? lines[i + 1].trim() : '';
-                if (!urlLine || urlLine.startsWith('#')) continue;
-                
-                let channelName = 'Unknown';
-                const nameMatch = infoLine.match(/,(.+)$/);
-                if (nameMatch && nameMatch[1]) channelName = nameMatch[1].trim();
-                
-                const group = getGroupTitle(infoLine);
-                
-                if (urlLine.startsWith('http')) {
-                    channels.push({
-                        name: channelName,
-                        url: urlLine,
-                        group: group,
-                        source: sourceName,
-                        isOffline: false
-                    });
-                }
-            }
-        }
-        return channels;
-    }
-
-    async function testChannelOffline(channel) {
-        if (channelStatus.has(channel.url)) {
-            return channelStatus.get(channel.url);
-        }
-        
-        channelStatus.set(channel.url, false);
-        
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
-            
-            await fetch(channel.url, {
-                method: 'HEAD',
-                mode: 'no-cors',
-                signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
-            channelStatus.set(channel.url, false);
-            return false;
-        } catch (error) {
-            channelStatus.set(channel.url, true);
-            return true;
-        }
-    }
-
-    function sortChannels(channels, activeChannelUrl) {
-        const working = [];
-        const offline = [];
-        
-        channels.forEach(ch => {
-            const isOffline = channelStatus.get(ch.url) || false;
-            if (isOffline) {
-                offline.push(ch);
-            } else {
-                working.push(ch);
-            }
-        });
-        
-        // Use custom sort for working channels
-        const sortedWorking = customSortChannels(working, activeChannelUrl);
-        
-        offline.sort((a, b) => a.name.localeCompare(b.name));
-        
-        return { working: sortedWorking, offline };
-    }
-
-    function getOrCreateCard(channel, isActive, isOffline) {
-        if (cardCache.has(channel.url)) {
-            const existingCard = cardCache.get(channel.url);
-            if (isActive) existingCard.classList.add('active');
-            else existingCard.classList.remove('active');
-            
-            if (isOffline) existingCard.classList.add('offline');
-            else existingCard.classList.remove('offline');
-            
-            const badgeDiv = existingCard.querySelector('.status-badge');
-            if (badgeDiv) {
-                if (isOffline) {
-                    badgeDiv.textContent = '● Offline';
-                    badgeDiv.className = 'status-badge offline';
-                } else if (isActive) {
-                    badgeDiv.textContent = '● Playing';
-                    badgeDiv.className = 'status-badge playing';
-                } else {
-                    badgeDiv.remove();
-                }
-            } else if (!isOffline && !isActive && existingCard.querySelector('.status-badge')) {
-                existingCard.querySelector('.status-badge').remove();
-            }
-            
-            return existingCard;
-        }
-        
-        const div = document.createElement('div');
-        div.className = 'channel-card';
-        if (isActive) div.classList.add('active');
-        if (isOffline) div.classList.add('offline');
-        
-        // Add priority badge for special channels
-        const isPriority = isPriorityChannel(channel.name);
-        const priorityBadge = isPriority ? '<div style="font-size:8px; color:#4ade80; margin-top:4px;">⭐ Featured</div>' : '';
-        
-        div.innerHTML = `
-            <div class="channel-name">${escapeHtml(channel.name)}</div>
-            ${channel.group ? `<div class="channel-group">${escapeHtml(channel.group)}</div>` : ''}
-            ${priorityBadge}
-            ${isOffline ? '<div class="status-badge offline">● Offline</div>' : (isActive ? '<div class="status-badge playing">● Playing</div>' : '')}
-        `;
-        
-        div.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const realIdx = masterChannels.findIndex(c => c.url === channel.url);
-            if (realIdx !== -1) playChannel(realIdx);
-        });
-        
-        cardCache.set(channel.url, div);
-        return div;
-    }
-
-    function renderChannelGrid(autoScroll = false) {
-        if (!channelGrid) return;
-        
-        if (filteredChannels.length === 0) {
-            channelGrid.innerHTML = `<div class="status-message">No channels found</div>`;
-            return;
-        }
-        
-        const activeChannelUrl = masterChannels[currentIndex]?.url;
-        const { working, offline } = sortChannels(filteredChannels, activeChannelUrl);
-        
-        const fragment = document.createDocumentFragment();
-        
-        // Add working channels section
-        if (working.length > 0) {
-            const priorityCount = working.filter(ch => isPriorityChannel(ch.name)).length;
-            const workingTitle = document.createElement('div');
-            workingTitle.className = 'section-title';
-            workingTitle.innerHTML = priorityCount > 0 ? `🟢 AVAILABLE · ⭐ Featured (${priorityCount}) + ${working.length - priorityCount} others` : `🟢 AVAILABLE · ${working.length}`;
-            fragment.appendChild(workingTitle);
-            
-            working.forEach((ch) => {
-                const isActive = (ch.url === activeChannelUrl);
-                const isOffline = false;
-                const card = getOrCreateCard(ch, isActive, isOffline);
-                fragment.appendChild(card);
-            });
-        }
-        
-        // Add offline channels section
-        if (offline.length > 0) {
-            const offlineTitle = document.createElement('div');
-            offlineTitle.className = 'section-title offline-title';
-            offlineTitle.innerHTML = `⚫ OFFLINE · ${offline.length}`;
-            fragment.appendChild(offlineTitle);
-            
-            offline.forEach((ch) => {
-                const isActive = false;
-                const isOffline = true;
-                const card = getOrCreateCard(ch, isActive, isOffline);
-                fragment.appendChild(card);
-            });
-        }
-        
-        const scrollY = window.scrollY;
-        
-        channelGrid.innerHTML = '';
-        channelGrid.appendChild(fragment);
-        
-        if (!autoScroll || isUserScrolling) {
-            window.scrollTo(0, scrollY);
-        }
-        
-        const offlineCount = offline.length;
-        const priorityWorkingCount = working.filter(ch => isPriorityChannel(ch.name)).length;
-        statsSpan.innerText = `${working.length} available (${priorityWorkingCount} featured) · ${offlineCount} offline`;
-        
-        if (autoScroll && shouldAutoScroll && !isUserScrolling) {
-            setTimeout(() => {
-                const activeCard = document.querySelector('.channel-card.active');
-                if (activeCard) {
-                    activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }, 100);
-        }
-    }
-
-    async function loadAllPlaylists() {
-        channelGrid.innerHTML = `<div class="status-message">Loading channels<span class="loading-dots"></span></div>`;
-        masterChannels = [];
-        cardCache.clear();
-        channelStatus.clear();
-        
-        const fetchPromises = PLAYLIST_URLS.map(async (url, idx) => {
-            try {
-                const response = await fetch(url + '?t=' + Date.now());
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const text = await response.text();
-                const parsed = parseM3UContent(text, idx === 0 ? 'AynaOTT' : 'Sports138');
-                console.log(`Loaded ${parsed.length} channels from ${idx === 0 ? 'AynaOTT' : 'Sports-138'}`);
-                return parsed;
-            } catch (err) {
-                console.warn(`Failed to load ${url}:`, err);
-                return [];
-            }
-        });
-        
-        const results = await Promise.all(fetchPromises);
-        masterChannels = results.flat();
-        
-        const uniqueMap = new Map();
-        for (const ch of masterChannels) {
-            if (!uniqueMap.has(ch.url)) {
-                uniqueMap.set(ch.url, ch);
-            }
-        }
-        masterChannels = Array.from(uniqueMap.values());
-        
-        if (masterChannels.length === 0) {
-            channelGrid.innerHTML = `<div class="status-message">No channels found</div>`;
-            statsSpan.innerText = `0 channels`;
-            return false;
-        }
-        
-        masterChannels.forEach(async (ch) => {
-            const isOffline = await testChannelOffline(ch);
-            ch.isOffline = isOffline;
-            renderChannelGrid(false);
-        });
-        
-        filteredChannels = [...masterChannels];
-        renderChannelGrid(true);
-        
-        // Try to play a priority channel first if available
-        const priorityChannelIndex = masterChannels.findIndex(ch => isPriorityChannel(ch.name));
-        if (priorityChannelIndex !== -1) {
-            playChannel(priorityChannelIndex);
-        } else if (filteredChannels.length) {
-            playChannel(0);
-        }
-        return true;
-    }
-
-    function playChannel(index) {
-        if (!masterChannels.length || index < 0 || index >= masterChannels.length) return;
-        if (isLoading) return;
-        isLoading = true;
-        
-        currentIndex = index;
-        const channel = masterChannels[currentIndex];
-        if (!channel || !channel.url) {
-            isLoading = false;
-            return;
-        }
-        
-        if (currentHls) {
-            currentHls.destroy();
-            currentHls = null;
-        }
-        
-        const url = channel.url;
-        const isHLS = url.includes('.m3u8') || url.includes('m3u8');
-        
-        if (channelStatus.get(channel.url) === true) {
-            channelStatus.set(channel.url, false);
-        }
-        
-        renderChannelGrid(true);
-        
-        if (isHLS && Hls.isSupported()) {
-            currentHls = new Hls({ debug: false, enableWorker: true, lowLatencyMode: true });
-            currentHls.loadSource(url);
-            currentHls.attachMedia(video);
-            currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
-                video.play().catch(e => console.log("Auto-play blocked", e));
-                isLoading = false;
-            });
-            currentHls.on(Hls.Events.ERROR, (ev, data) => {
-                if (data.fatal) {
-                    console.warn("Stream error, marking as offline");
-                    channelStatus.set(channel.url, true);
-                    renderChannelGrid(false);
-                    nextChannel();
-                }
-                isLoading = false;
-            });
-        } else if (video.canPlayType('application/vnd.apple.mpegurl') && isHLS) {
-            video.src = url;
-            video.play().catch(e => {
-                console.log(e);
-                channelStatus.set(channel.url, true);
-                renderChannelGrid(false);
-            });
-            isLoading = false;
-        } else {
-            video.src = url;
-            video.play().catch(e => {
-                console.warn("Play error", e);
-                channelStatus.set(channel.url, true);
-                renderChannelGrid(false);
-            });
-            isLoading = false;
-        }
-        
-        document.title = `${channel.name} · Live TV`;
-    }
-    
-    function nextChannel() {
-        if (!masterChannels.length) return;
-        
-        let newIdx = currentIndex + 1;
-        let attempts = 0;
-        while (attempts < masterChannels.length) {
-            if (newIdx >= masterChannels.length) newIdx = 0;
-            const isOffline = channelStatus.get(masterChannels[newIdx]?.url) || false;
-            if (!isOffline) break;
-            newIdx++;
-            attempts++;
-        }
-        playChannel(newIdx);
-    }
-    
-    function prevChannel() {
-        if (!masterChannels.length) return;
-        
-        let newIdx = currentIndex - 1;
-        let attempts = 0;
-        while (attempts < masterChannels.length) {
-            if (newIdx < 0) newIdx = masterChannels.length - 1;
-            const isOffline = channelStatus.get(masterChannels[newIdx]?.url) || false;
-            if (!isOffline) break;
-            newIdx--;
-            attempts++;
-        }
-        playChannel(newIdx);
-    }
-    
-    function togglePlayPause() {
-        if (video.paused) video.play().catch(e=>console.log);
-        else video.pause();
-    }
-    
-    function applySearchFilter() {
-        const term = searchInput.value.trim().toLowerCase();
-        if (!term) {
-            filteredChannels = [...masterChannels];
-        } else {
-            filteredChannels = masterChannels.filter(ch => 
-                ch.name.toLowerCase().includes(term)
-            );
-        }
-        renderChannelGrid(false);
-        
-        const currentStillVisible = filteredChannels.some(ch => ch.url === masterChannels[currentIndex]?.url);
-        if (!currentStillVisible && filteredChannels.length > 0) {
-            const newMasterIdx = masterChannels.findIndex(ch => ch.url === filteredChannels[0].url);
-            if (newMasterIdx !== -1) playChannel(newMasterIdx);
-        }
-    }
-    
-    let hideTimeout;
     const controlsDiv = document.getElementById('customControls');
-    function resetHideTimer() {
-        if (controlsDiv) controlsDiv.style.opacity = '1';
-        if (hideTimeout) clearTimeout(hideTimeout);
-        hideTimeout = setTimeout(() => {
-            if (controlsDiv) controlsDiv.style.opacity = '0';
-        }, 2000);
+
+    // ----- helpers -----
+    function isPriority(name) {
+      const lower = name.toLowerCase();
+      return PRIORITY_KEYWORDS.some(kw => lower.includes(kw));
     }
-    function showControls() { resetHideTimer(); }
-    
-    setupScrollDetection();
-    
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m));
+    }
+
+    function getGroup(infoLine) {
+      const m = infoLine.match(/group-title="([^"]*)"/i);
+      return m ? m[1] : '';
+    }
+
+    // parse m3u content
+    function parseM3U(text) {
+      const lines = text.split(/\r?\n/);
+      const channels = [];
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line.startsWith('#EXTINF')) {
+          const info = line;
+          const urlLine = (i + 1 < lines.length) ? lines[i + 1].trim() : '';
+          if (!urlLine || urlLine.startsWith('#')) continue;
+          let name = 'Unknown';
+          const nameMatch = info.match(/,(.+)$/);
+          if (nameMatch && nameMatch[1]) name = nameMatch[1].trim();
+          const group = getGroup(info);
+          if (urlLine.startsWith('http')) {
+            channels.push({ name, url: urlLine, group, source: 'fifa.m3u' });
+          }
+        }
+      }
+      return channels;
+    }
+
+    // quick offline test (HEAD)
+    async function testOffline(channel) {
+      if (channelStatus.has(channel.url)) return channelStatus.get(channel.url);
+      channelStatus.set(channel.url, false);
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 3000);
+        await fetch(channel.url, { method: 'HEAD', mode: 'no-cors', signal: ctrl.signal });
+        clearTimeout(timer);
+        channelStatus.set(channel.url, false);
+        return false;
+      } catch (_) {
+        channelStatus.set(channel.url, true);
+        return true;
+      }
+    }
+
+    // custom sort: priority first, then alphabetical, active channel on top
+    function sortChannels(channels, activeUrl) {
+      const priority = [];
+      const normal = [];
+      channels.forEach(ch => {
+        if (isPriority(ch.name)) priority.push(ch);
+        else normal.push(ch);
+      });
+      priority.sort((a,b) => a.name.localeCompare(b.name));
+      normal.sort((a,b) => a.name.localeCompare(b.name));
+
+      // move active to top if present in either list
+      const moveActive = (arr) => {
+        const idx = arr.findIndex(ch => ch.url === activeUrl);
+        if (idx > 0) {
+          const [active] = arr.splice(idx, 1);
+          arr.unshift(active);
+        }
+      };
+      moveActive(priority);
+      moveActive(normal);
+      return [...priority, ...normal];
+    }
+
+    // get or create card element with cache
+    function getCard(channel, isActive, isOffline) {
+      if (cardCache.has(channel.url)) {
+        const el = cardCache.get(channel.url);
+        el.classList.toggle('active', isActive);
+        el.classList.toggle('offline', isOffline);
+        const badge = el.querySelector('.status-badge');
+        if (isOffline) {
+          if (!badge) {
+            const b = document.createElement('div');
+            b.className = 'status-badge offline';
+            b.textContent = '● Offline';
+            el.appendChild(b);
+          } else {
+            badge.textContent = '● Offline';
+            badge.className = 'status-badge offline';
+          }
+        } else if (isActive) {
+          if (!badge) {
+            const b = document.createElement('div');
+            b.className = 'status-badge playing';
+            b.textContent = '● Playing';
+            el.appendChild(b);
+          } else {
+            badge.textContent = '● Playing';
+            badge.className = 'status-badge playing';
+          }
+        } else {
+          if (badge) badge.remove();
+        }
+        return el;
+      }
+
+      const div = document.createElement('div');
+      div.className = 'channel-card';
+      if (isActive) div.classList.add('active');
+      if (isOffline) div.classList.add('offline');
+
+      const priorityBadge = isPriority(channel.name) ? '<div style="font-size:8px;color:#4ade80;margin-top:4px;">⭐ Featured</div>' : '';
+      div.innerHTML = `
+        <div class="channel-name">${escapeHtml(channel.name)}</div>
+        ${channel.group ? `<div class="channel-group">${escapeHtml(channel.group)}</div>` : ''}
+        ${priorityBadge}
+        ${isOffline ? '<div class="status-badge offline">● Offline</div>' : (isActive ? '<div class="status-badge playing">● Playing</div>' : '')}
+      `;
+      div.addEventListener('click', () => {
+        const idx = masterChannels.findIndex(c => c.url === channel.url);
+        if (idx !== -1) playChannel(idx);
+      });
+      cardCache.set(channel.url, div);
+      return div;
+    }
+
+    // render grid with sections: Available / Offline
+    function renderGrid(autoScroll = false) {
+      if (!channelGrid) return;
+      if (filteredChannels.length === 0) {
+        channelGrid.innerHTML = `<div class="status-message">No channels found</div>`;
+        return;
+      }
+
+      const activeUrl = masterChannels[currentIndex]?.url;
+      // split online / offline based on status map
+      const online = [];
+      const offline = [];
+      filteredChannels.forEach(ch => {
+        const off = channelStatus.get(ch.url) || false;
+        if (off) offline.push(ch);
+        else online.push(ch);
+      });
+
+      // sort online with custom priority
+      const sortedOnline = sortChannels(online, activeUrl);
+      // sort offline alphabetically
+      offline.sort((a,b) => a.name.localeCompare(b.name));
+
+      const fragment = document.createDocumentFragment();
+
+      if (sortedOnline.length) {
+        const title = document.createElement('div');
+        title.className = 'section-title';
+        const featuredCount = sortedOnline.filter(ch => isPriority(ch.name)).length;
+        title.innerHTML = `🟢 AVAILABLE · ${sortedOnline.length} (⭐ ${featuredCount} featured)`;
+        fragment.appendChild(title);
+        sortedOnline.forEach(ch => {
+          const active = ch.url === activeUrl;
+          const card = getCard(ch, active, false);
+          fragment.appendChild(card);
+        });
+      }
+
+      if (offline.length) {
+        const title = document.createElement('div');
+        title.className = 'section-title offline-title';
+        title.innerHTML = `⚫ OFFLINE · ${offline.length}`;
+        fragment.appendChild(title);
+        offline.forEach(ch => {
+          const card = getCard(ch, false, true);
+          fragment.appendChild(card);
+        });
+      }
+
+      const scrollY = window.scrollY;
+      channelGrid.innerHTML = '';
+      channelGrid.appendChild(fragment);
+      if (!autoScroll) window.scrollTo(0, scrollY);
+
+      const total = masterChannels.length;
+      const onlineCount = sortedOnline.length;
+      const offlineCount = offline.length;
+      statsSpan.innerText = `${onlineCount} available · ${offlineCount} offline · ${total} total`;
+
+      if (autoScroll) {
+        setTimeout(() => {
+          const activeCard = document.querySelector('.channel-card.active');
+          if (activeCard) activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 120);
+      }
+    }
+
+    // load single playlist
+    async function loadPlaylist() {
+      channelGrid.innerHTML = `<div class="status-message">Loading channels<span class="loading-dots"></span></div>`;
+      masterChannels = [];
+      cardCache.clear();
+      channelStatus.clear();
+
+      try {
+        const resp = await fetch(PLAYLIST_URL + '?t=' + Date.now());
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const text = await resp.text();
+        const parsed = parseM3U(text);
+        console.log(`Loaded ${parsed.length} channels from fifa.m3u`);
+
+        // dedup by url
+        const map = new Map();
+        parsed.forEach(ch => { if (!map.has(ch.url)) map.set(ch.url, ch); });
+        masterChannels = Array.from(map.values());
+      } catch (err) {
+        console.warn('Failed to load playlist:', err);
+        channelGrid.innerHTML = `<div class="status-message">Failed to load playlist</div>`;
+        return false;
+      }
+
+      if (masterChannels.length === 0) {
+        channelGrid.innerHTML = `<div class="status-message">No channels in playlist</div>`;
+        statsSpan.innerText = '0 channels';
+        return false;
+      }
+
+      // initial offline detection
+      filteredChannels = [...masterChannels];
+      renderGrid(false);
+
+      // test each channel asynchronously
+      const testPromises = masterChannels.map(ch => testOffline(ch));
+      await Promise.all(testPromises);
+      renderGrid(false);
+
+      // try to play first priority channel, else first
+      let startIdx = masterChannels.findIndex(ch => isPriority(ch.name));
+      if (startIdx === -1) startIdx = 0;
+      playChannel(startIdx);
+      return true;
+    }
+
+    // play channel by index
+    function playChannel(index) {
+      if (!masterChannels.length || index < 0 || index >= masterChannels.length) return;
+      if (isLoading) return;
+      isLoading = true;
+
+      currentIndex = index;
+      const channel = masterChannels[currentIndex];
+      if (!channel || !channel.url) { isLoading = false; return; }
+
+      if (currentHls) {
+        currentHls.destroy();
+        currentHls = null;
+      }
+
+      // if marked offline, try to clear (maybe it's back)
+      if (channelStatus.get(channel.url) === true) {
+        channelStatus.set(channel.url, false);
+      }
+
+      renderGrid(true);
+
+      const url = channel.url;
+      const isHLS = url.includes('.m3u8') || url.includes('m3u8');
+
+      if (isHLS && Hls.isSupported()) {
+        currentHls = new Hls({ debug: false, enableWorker: true, lowLatencyMode: true });
+        currentHls.loadSource(url);
+        currentHls.attachMedia(video);
+        currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
+          video.play().catch(() => {});
+          isLoading = false;
+        });
+        currentHls.on(Hls.Events.ERROR, (ev, data) => {
+          if (data.fatal) {
+            console.warn('HLS fatal error, marking offline');
+            channelStatus.set(channel.url, true);
+            renderGrid(false);
+            nextChannel();
+          }
+          isLoading = false;
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl') && isHLS) {
+        video.src = url;
+        video.play().catch(() => {});
+        isLoading = false;
+      } else {
+        video.src = url;
+        video.play().catch(() => {
+          channelStatus.set(channel.url, true);
+          renderGrid(false);
+        });
+        isLoading = false;
+      }
+      document.title = `${channel.name} · FIFA TV`;
+    }
+
+    function nextChannel() {
+      if (!masterChannels.length) return;
+      let idx = currentIndex + 1;
+      let attempts = 0;
+      while (attempts < masterChannels.length) {
+        if (idx >= masterChannels.length) idx = 0;
+        const off = channelStatus.get(masterChannels[idx]?.url) || false;
+        if (!off) break;
+        idx++;
+        attempts++;
+      }
+      playChannel(idx);
+    }
+
+    function prevChannel() {
+      if (!masterChannels.length) return;
+      let idx = currentIndex - 1;
+      let attempts = 0;
+      while (attempts < masterChannels.length) {
+        if (idx < 0) idx = masterChannels.length - 1;
+        const off = channelStatus.get(masterChannels[idx]?.url) || false;
+        if (!off) break;
+        idx--;
+        attempts++;
+      }
+      playChannel(idx);
+    }
+
+    function togglePlayPause() {
+      if (video.paused) video.play().catch(() => {});
+      else video.pause();
+    }
+
+    function applySearch() {
+      const term = searchInput.value.trim().toLowerCase();
+      if (!term) filteredChannels = [...masterChannels];
+      else filteredChannels = masterChannels.filter(ch => ch.name.toLowerCase().includes(term));
+      renderGrid(false);
+      // if current channel not in filtered, play first
+      const still = filteredChannels.some(ch => ch.url === masterChannels[currentIndex]?.url);
+      if (!still && filteredChannels.length) {
+        const newIdx = masterChannels.findIndex(ch => ch.url === filteredChannels[0].url);
+        if (newIdx !== -1) playChannel(newIdx);
+      }
+    }
+
+    // controls visibility
+    let hideTimer;
+    function resetHide() { if (controlsDiv) controlsDiv.style.opacity = '1'; clearTimeout(hideTimer); hideTimer = setTimeout(() => { if (controlsDiv) controlsDiv.style.opacity = '0'; }, 2500); }
+    function showControls() { resetHide(); }
+
+    // event listeners
     prevBtn.addEventListener('click', () => { prevChannel(); showControls(); });
     nextBtn.addEventListener('click', () => { nextChannel(); showControls(); });
     playPauseBtn.addEventListener('click', () => { togglePlayPause(); showControls(); });
     document.querySelector('.player-box')?.addEventListener('click', showControls);
-    video.addEventListener('play', () => showControls());
-    video.addEventListener('pause', () => showControls());
-    searchInput.addEventListener('input', () => { applySearchFilter(); showControls(); });
-    
+    video.addEventListener('play', showControls);
+    video.addEventListener('pause', showControls);
+    searchInput.addEventListener('input', applySearch);
+
     window.addEventListener('keydown', (e) => {
-        if (e.key === 'ArrowLeft') { prevChannel(); e.preventDefault(); showControls(); }
-        else if (e.key === 'ArrowRight') { nextChannel(); e.preventDefault(); showControls(); }
-        else if (e.key === ' ' || e.key === 'Space') { togglePlayPause(); e.preventDefault(); showControls(); }
+      if (e.key === 'ArrowLeft') { prevChannel(); e.preventDefault(); showControls(); }
+      else if (e.key === 'ArrowRight') { nextChannel(); e.preventDefault(); showControls(); }
+      else if (e.key === ' ' || e.key === 'Space') { togglePlayPause(); e.preventDefault(); showControls(); }
     });
-    
+
     window.addEventListener('scroll', () => {
-        if (window.scrollY > 300) topBtn.style.display = 'flex';
-        else topBtn.style.display = 'none';
+      topBtn.style.display = window.scrollY > 300 ? 'flex' : 'none';
     });
     topBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-    
-    loadAllPlaylists();
-    resetHideTimer();
+
+    // start
+    loadPlaylist();
+    resetHide();
     setTimeout(() => { if (controlsDiv) controlsDiv.style.opacity = '0'; }, 3000);
+  })();
 </script>
 </body>
 </html>
