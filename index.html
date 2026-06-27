@@ -290,14 +290,8 @@
 
 <script>
   (function() {
-    // ----- ONLY ONE M3U: fifa.m3u -----
+    // ----- SINGLE M3U: fifa.m3u (no featured logic) -----
     const PLAYLIST_URL = "https://raw.githubusercontent.com/bd257/live/refs/heads/main/fifa.m3u";
-
-    // Priority keywords: channels containing these appear first (featured)
-    const PRIORITY_KEYWORDS = [
-      "fifa", "world cup", "wc", "qatar", "2026", "fifa+", "fifa tv",
-      "btv", "t sports", "tsports", "sports"
-    ];
 
     let masterChannels = [];
     let filteredChannels = [];
@@ -318,11 +312,6 @@
     const controlsDiv = document.getElementById('customControls');
 
     // ----- helpers -----
-    function isPriority(name) {
-      const lower = name.toLowerCase();
-      return PRIORITY_KEYWORDS.some(kw => lower.includes(kw));
-    }
-
     function escapeHtml(str) {
       if (!str) return '';
       return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m));
@@ -372,28 +361,17 @@
       }
     }
 
-    // custom sort: priority first, then alphabetical, active channel on top
+    // simple alphabetical sort (no priority / featured)
     function sortChannels(channels, activeUrl) {
-      const priority = [];
-      const normal = [];
-      channels.forEach(ch => {
-        if (isPriority(ch.name)) priority.push(ch);
-        else normal.push(ch);
-      });
-      priority.sort((a,b) => a.name.localeCompare(b.name));
-      normal.sort((a,b) => a.name.localeCompare(b.name));
-
-      // move active to top if present in either list
-      const moveActive = (arr) => {
-        const idx = arr.findIndex(ch => ch.url === activeUrl);
-        if (idx > 0) {
-          const [active] = arr.splice(idx, 1);
-          arr.unshift(active);
-        }
-      };
-      moveActive(priority);
-      moveActive(normal);
-      return [...priority, ...normal];
+      const sorted = [...channels];
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+      // move active channel to top if present
+      const idx = sorted.findIndex(ch => ch.url === activeUrl);
+      if (idx > 0) {
+        const [active] = sorted.splice(idx, 1);
+        sorted.unshift(active);
+      }
+      return sorted;
     }
 
     // get or create card element with cache
@@ -434,11 +412,9 @@
       if (isActive) div.classList.add('active');
       if (isOffline) div.classList.add('offline');
 
-      const priorityBadge = isPriority(channel.name) ? '<div style="font-size:8px;color:#4ade80;margin-top:4px;">⭐ Featured</div>' : '';
       div.innerHTML = `
         <div class="channel-name">${escapeHtml(channel.name)}</div>
         ${channel.group ? `<div class="channel-group">${escapeHtml(channel.group)}</div>` : ''}
-        ${priorityBadge}
         ${isOffline ? '<div class="status-badge offline">● Offline</div>' : (isActive ? '<div class="status-badge playing">● Playing</div>' : '')}
       `;
       div.addEventListener('click', () => {
@@ -467,7 +443,7 @@
         else online.push(ch);
       });
 
-      // sort online with custom priority
+      // sort online alphabetically (no featured)
       const sortedOnline = sortChannels(online, activeUrl);
       // sort offline alphabetically
       offline.sort((a,b) => a.name.localeCompare(b.name));
@@ -477,8 +453,7 @@
       if (sortedOnline.length) {
         const title = document.createElement('div');
         title.className = 'section-title';
-        const featuredCount = sortedOnline.filter(ch => isPriority(ch.name)).length;
-        title.innerHTML = `🟢 AVAILABLE · ${sortedOnline.length} (⭐ ${featuredCount} featured)`;
+        title.innerHTML = `🟢 AVAILABLE · ${sortedOnline.length}`;
         fragment.appendChild(title);
         sortedOnline.forEach(ch => {
           const active = ch.url === activeUrl;
@@ -555,10 +530,8 @@
       await Promise.all(testPromises);
       renderGrid(false);
 
-      // try to play first priority channel, else first
-      let startIdx = masterChannels.findIndex(ch => isPriority(ch.name));
-      if (startIdx === -1) startIdx = 0;
-      playChannel(startIdx);
+      // play first channel (no priority)
+      playChannel(0);
       return true;
     }
 
